@@ -2,6 +2,8 @@ import sys
 import argparse
 
 from scanner import Scanner
+from parser import Parser
+from ast_printer import AstPrinter
 from error_reporter import error_reporter
 
 
@@ -49,9 +51,13 @@ class Lox:
     def run(self, src: str) -> None:
         scanner = Scanner(src)
         tokens = scanner.scan_tokens()
+        parser = Parser(tokens)
+        expression = parser.parse()
 
-        for token in tokens:
-            print(token)
+        if self.had_error:
+            return
+
+        print(AstPrinter().print(expression))
 
 
 if __name__ == "__main__":
