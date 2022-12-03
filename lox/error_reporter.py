@@ -14,17 +14,18 @@ class ErrorReporter:
 
     @error.register
     def _(self, line: int, msg: str) -> None:
-        self.report(line, "", msg)
+        self._report(line, "", msg)
 
-    def report(self, line: int, where: str, msg: str) -> None:
+    def _report(self, line: int, where: str, msg: str) -> None:
         print(f"[line {line}] Error{where}: {msg}", file=sys.stderr)
         self.had_error = True
 
     @error.register
     def _(self, token: Token, msg: str) -> None:
         if token.type == TokenType.EOF:
-            self.report(token.line, " at end", msg)
+            self._report(token.line, " at end", msg)
         else:
-            self.report(token.line, f" at '{token.lexme}'", msg)
+            self._report(token.line, f" at '{token.lexme}'", msg)
+
 
 error_reporter = ErrorReporter()

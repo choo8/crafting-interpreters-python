@@ -28,8 +28,8 @@ class AstPrinter(expr.Visitor[str]):
         builder = ""
 
         builder += f"({name}"
-        for expr in exprs:
-            builder += f" {expr.accept(self)}"
+        for _expr in exprs:
+            builder += f" {_expr.accept(self)}"
         builder += ")"
 
         return builder

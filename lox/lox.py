@@ -9,7 +9,7 @@ from error_reporter import error_reporter
 
 class Lox:
     def __init__(self):
-        self.had_error = False
+        pass
 
     def main(self) -> None:
         parser = argparse.ArgumentParser(description="Interprets Lox scripts")
@@ -26,18 +26,18 @@ class Lox:
         args = parser.parse_args()
 
         if args.script:
-            self.run_file(args.script[0])
+            self._run_file(args.script[0])
         else:
-            self.run_prompt()
+            self._run_prompt()
 
-    def run_file(self, path: str) -> None:
+    def _run_file(self, path: str) -> None:
         with open(path, "r") as f:
-            self.run(f.read())
+            self._run(f.read())
 
             if error_reporter.had_error:
                 sys.exit(65)
 
-    def run_prompt(self) -> None:
+    def _run_prompt(self) -> None:
         while True:
             line = input("> ")
             # Interpreter exits when user does not enter any input
@@ -45,16 +45,16 @@ class Lox:
             # empty string
             if not line:
                 break
-            self.run(line)
+            self._run(line)
             error_reporter.had_error = False
 
-    def run(self, src: str) -> None:
+    def _run(self, src: str) -> None:
         scanner = Scanner(src)
         tokens = scanner.scan_tokens()
         parser = Parser(tokens)
         expression = parser.parse()
 
-        if self.had_error:
+        if error_reporter.had_error:
             return
 
         print(AstPrinter().print(expression))
