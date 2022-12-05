@@ -3,13 +3,13 @@ import argparse
 
 from scanner import Scanner
 from parser import Parser
-from ast_printer import AstPrinter
 from error_reporter import error_reporter
+from interpreter import Interpreter
 
 
 class Lox:
     def __init__(self):
-        pass
+        self._interpreter = Interpreter()
 
     def main(self) -> None:
         parser = argparse.ArgumentParser(description="Interprets Lox scripts")
@@ -36,6 +36,8 @@ class Lox:
 
             if error_reporter.had_error:
                 sys.exit(65)
+            if error_reporter.had_runtime_error:
+                sys.exit(70)
 
     def _run_prompt(self) -> None:
         while True:
@@ -57,7 +59,7 @@ class Lox:
         if error_reporter.had_error:
             return
 
-        print(AstPrinter().print(expression))
+        self._interpreter.interpret(expression)
 
 
 if __name__ == "__main__":

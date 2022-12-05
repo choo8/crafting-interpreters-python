@@ -5,7 +5,7 @@ from error_reporter import error_reporter
 from expr import Expr, Binary, Unary, Literal, Grouping
 
 
-class _ParseError(RuntimeError):
+class _ParseError(Exception):
     pass
 
 
