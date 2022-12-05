@@ -14,7 +14,7 @@ class Interpreter(Visitor[object]):
             value = self._evaluate(expression)
             print(self._stringify(value))
         except RuntimeError as error:
-            error_reporter.error(error)
+            error_reporter.runtime_error(error)
 
     def visit_literal_expr(self, expr: Literal) -> object:
         return expr.value

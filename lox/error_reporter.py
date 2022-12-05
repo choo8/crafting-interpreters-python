@@ -30,7 +30,7 @@ class ErrorReporter:
             self._report(token.line, f" at '{token.lexme}'", msg)
 
     def runtime_error(self, error: RuntimeError) -> None:
-        print(f"{error.get_message()}\n[line {error.token.line}]", file=sys.stderr)
+        print(f"{repr(error)}\n[line {error.token.line}]", file=sys.stderr)
         self.had_runtime_error = True
 
 
