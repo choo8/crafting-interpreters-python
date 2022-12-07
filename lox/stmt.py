@@ -1,11 +1,12 @@
-from typing import Generic, TypeVar
+from expr import Expr
 from token import Token
+from typing import Generic, TypeVar, List
 
 
 R = TypeVar("R")
 
 
-class Expr:
+class Stmt:
     def __init__(self):
         pass
 
@@ -16,12 +17,10 @@ class Visitor(Generic[R]):
 
 
 subclasses = {
-    "Assign": {"name": "Token", "value": "Expr"},
-    "Binary": {"left": "Expr", "operator": "int", "right": "Expr"},
-    "Grouping": {"expression": "Expr"},
-    "Literal": {"value": "object"},
-    "Unary": {"operator": "Token", "right": "Expr"},
-    "Variable": {"name": "Token"},
+    "Block": {"statements": "List[Stmt]"},
+    "Expression": {"expression": "Expr"},
+    "Print": {"expression": "Expr"},
+    "Var": {"name": "Token", "initializer": "Expr"},
 }
 
 for name, attributes in subclasses.items():
@@ -32,7 +31,7 @@ for name, attributes in subclasses.items():
         args += f", {arg}: {arg_type}"
 
     subclass_str = ""
-    subclass_str += f"class {name}(Expr):\n"
+    subclass_str += f"class {name}(Stmt):\n"
     subclass_str += f"    def __init__(self{args}):\n"
 
     for arg in attributes:
@@ -40,7 +39,7 @@ for name, attributes in subclasses.items():
 
     subclass_str += "\n"
     subclass_str += "    def accept(self, visitor: Visitor[R]) -> R:\n"
-    subclass_str += f"        return visitor.visit_{name.lower()}_expr(self)\n"
+    subclass_str += f"        return visitor.visit_{name.lower()}_stmt(self)\n"
 
     # Exposes the class when module is imported
     exec(subclass_str, globals())

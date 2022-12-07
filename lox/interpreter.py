@@ -1,34 +1,41 @@
-from expr import Visitor, Expr, Literal, Grouping, Unary, Binary
+import expr
+import stmt
 from token_type import TokenType
 from token import Token
 from runtime_error import RuntimeError
 from error_reporter import error_reporter
+from environment import Environment
+from typing import List
 
 
-class Interpreter(Visitor[object]):
+class Interpreter(expr.Visitor[object], stmt.Visitor[None]):
     def __init__(self):
-        pass
+        self._environment = Environment()
 
-    def interpret(self, expression: Expr) -> None:
+    def interpret(self, statements: List[stmt.Stmt]) -> None:
         try:
-            value = self._evaluate(expression)
-            print(self._stringify(value))
+            for statement in statements:
+                self._execute(statement)
         except RuntimeError as error:
             error_reporter.runtime_error(error)
 
-    def visit_literal_expr(self, expr: Literal) -> object:
-        return expr.value
+    def visit_literal_expr(self, _expr: expr.Literal) -> object:
+        return _expr.value
 
-    def visit_unary_expr(self, expr: Unary) -> object:
-        right = self._evaluate(expr.right)
+    def visit_unary_expr(self, _expr: expr.Unary) -> object:
+        right = self._evaluate(_expr.right)
 
-        if expr.operator.type == TokenType.BANG:
+        if _expr.operator.type == TokenType.BANG:
             return not self._is_truthy(right)
-        elif expr.operator.type == TokenType.MINUS:
+        elif _expr.operator.type == TokenType.MINUS:
+            self._check_number_operand(_expr.operator, right)
             return -float(right)
 
         # Unreachable
         return None
+
+    def visit_variable_expr(self, _expr: expr.Variable) -> object:
+        return self._environment.get(_expr.name)
 
     def _check_number_operand(self, operator: Token, operand: object) -> None:
         if isinstance(operand, float):
@@ -42,8 +49,8 @@ class Interpreter(Visitor[object]):
             return
         raise RuntimeError(operator, "Operands must be numbers.")
 
-    def visit_grouping_expr(self, expr: Grouping) -> object:
-        return self._evaluate(expr.expression)
+    def visit_grouping_expr(self, _expr: expr.Grouping) -> object:
+        return self._evaluate(_expr.expression)
 
     def _is_truthy(self, object: object) -> bool:
         if object is None:
@@ -70,44 +77,83 @@ class Interpreter(Visitor[object]):
             return text
         return str(object)
 
-    def _evaluate(self, expr: Expr) -> object:
-        return expr.accept(self)
+    def _evaluate(self, _expr: expr.Expr) -> object:
+        return _expr.accept(self)
 
-    def visit_binary_expr(self, expr: Binary) -> object:
-        left = self._evaluate(expr.left)
-        right = self._evaluate(expr.right)
+    def _execute(self, _stmt: stmt.Stmt) -> None:
+        _stmt.accept(self)
 
-        if expr.operator.type == TokenType.GREATER:
-            self._check_number_operands(expr.operator, left, right)
+    def execute_block(self, statements: List[stmt.Stmt], environment: Environment) -> None:
+        previous = self._environment
+        try:
+            self._environment = environment
+
+            for statement in statements:
+                self._execute(statement)
+        finally:
+            self._environment = previous
+
+    def visit_block_stmt(self, _stmt:stmt.Block) -> None:
+        self.execute_block(_stmt.statements, Environment(self._environment))
+        return None
+
+    def visit_expression_stmt(self, _stmt: stmt.Stmt) -> None:
+        self._evaluate(_stmt.expression)
+        return None
+
+    def visit_print_stmt(self, _stmt: stmt.Stmt) -> None:
+        value = self._evaluate(_stmt.expression)
+        print(self._stringify(value))
+        return None
+
+    def visit_var_stmt(self, _stmt: stmt.Var) -> None:
+        value = None
+        if _stmt.initializer is not None:
+            value = self._evaluate(_stmt.initializer)
+
+        self._environment.define(_stmt.name.lexme, value)
+        return None
+
+    def visit_assign_expr(self, _expr: expr.Assign) -> object:
+        value = self._evaluate(_expr.value)
+        self._environment.assign(_expr.name, value)
+        return value
+
+    def visit_binary_expr(self, _expr: expr.Binary) -> object:
+        left = self._evaluate(_expr.left)
+        right = self._evaluate(_expr.right)
+
+        if _expr.operator.type == TokenType.GREATER:
+            self._check_number_operands(_expr.operator, left, right)
             return float(left) > float(right)
-        elif expr.operator.type == TokenType.GREATER_EQUAL:
-            self._check_number_operands(expr.operator, left, right)
+        elif _expr.operator.type == TokenType.GREATER_EQUAL:
+            self._check_number_operands(_expr.operator, left, right)
             return float(left) >= float(right)
-        elif expr.operator.type == TokenType.LESS:
-            self._check_number_operands(expr.operator, left, right)
+        elif _expr.operator.type == TokenType.LESS:
+            self._check_number_operands(_expr.operator, left, right)
             return float(left) < float(right)
-        elif expr.operator.type == TokenType.LESS_EQUAL:
-            self._check_number_operands(expr.operator, left, right)
+        elif _expr.operator.type == TokenType.LESS_EQUAL:
+            self._check_number_operands(_expr.operator, left, right)
             return float(left) <= float(right)
-        elif expr.operator.type == TokenType.MINUS:
-            self._check_number_operand(expr.operator, right)
+        elif _expr.operator.type == TokenType.MINUS:
+            self._check_number_operands(_expr.operator, left, right)
             return float(left) - float(right)
-        elif expr.operator.type == TokenType.PLUS:
+        elif _expr.operator.type == TokenType.PLUS:
             if isinstance(left, float) and isinstance(right, float):
                 return float(left) + float(right)
             if isinstance(left, str) and isinstance(right, str):
                 return str(left) + str(right)
             raise RuntimeError(
-                expr.operator, "Operands must be two numbers or two strings."
+                _expr.operator, "Operands must be two numbers or two strings."
             )
-        elif expr.operator.type == TokenType.SLASH:
+        elif _expr.operator.type == TokenType.SLASH:
             return float(left) / float(right)
-        elif expr.operator.type == TokenType.STAR:
-            self._check_number_operands(expr.operator, left, right)
+        elif _expr.operator.type == TokenType.STAR:
+            self._check_number_operands(_expr.operator, left, right)
             return float(left) * float(right)
-        elif expr.operator.type == TokenType.BANG_EQUAL:
+        elif _expr.operator.type == TokenType.BANG_EQUAL:
             return not self._is_equal(left, right)
-        elif expr.operator.type == TokenType.EQUAL_EQUAL:
+        elif _expr.operator.type == TokenType.EQUAL_EQUAL:
             return self._is_equal(left, right)
 
         # Unreachable

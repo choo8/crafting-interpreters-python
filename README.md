@@ -9,4 +9,6 @@ My Python implementation of the Lox interpreter in [part II](https://craftingint
 # Potential Improvements
 1. Token implementation to contain column that contains the lexme and its length
 2. Coalescing run of errors during scanning to improve user experience
-3. Implement support for C-style block comments, consider allowing them to nest.
+3. Implement support for C-style block comments, consider allowing them to nest
+4. Implement support for the `+` operator such that if either operand is a string, convert the other operand to string and concatenate them
+5. Implement support for divide by zero and report a runtime error
