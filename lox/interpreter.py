@@ -22,6 +22,18 @@ class Interpreter(expr.Visitor[object], stmt.Visitor[None]):
     def visit_literal_expr(self, _expr: expr.Literal) -> object:
         return _expr.value
 
+    def visit_logical_expr(self, _expr: expr.Logical) -> object:
+        left = self._evaluate(_expr.left)
+
+        if _expr.operator.type == TokenType.OR:
+            if self._is_truthy(left):
+                return left
+        else:
+            if not self._is_truthy(left):
+                return left
+
+        return self._evaluate(_expr.right)
+
     def visit_unary_expr(self, _expr: expr.Unary) -> object:
         right = self._evaluate(_expr.right)
 
@@ -83,7 +95,9 @@ class Interpreter(expr.Visitor[object], stmt.Visitor[None]):
     def _execute(self, _stmt: stmt.Stmt) -> None:
         _stmt.accept(self)
 
-    def execute_block(self, statements: List[stmt.Stmt], environment: Environment) -> None:
+    def execute_block(
+        self, statements: List[stmt.Stmt], environment: Environment
+    ) -> None:
         previous = self._environment
         try:
             self._environment = environment
@@ -93,12 +107,19 @@ class Interpreter(expr.Visitor[object], stmt.Visitor[None]):
         finally:
             self._environment = previous
 
-    def visit_block_stmt(self, _stmt:stmt.Block) -> None:
+    def visit_block_stmt(self, _stmt: stmt.Block) -> None:
         self.execute_block(_stmt.statements, Environment(self._environment))
         return None
 
     def visit_expression_stmt(self, _stmt: stmt.Stmt) -> None:
         self._evaluate(_stmt.expression)
+        return None
+
+    def visit_if_stmt(self, _stmt: stmt.If) -> None:
+        if self._is_truthy(self._evaluate(_stmt.condition)):
+            self._execute(_stmt.then_branch)
+        elif _stmt.else_branch is not None:
+            self._execute(_stmt.else_branch)
         return None
 
     def visit_print_stmt(self, _stmt: stmt.Stmt) -> None:
@@ -112,6 +133,11 @@ class Interpreter(expr.Visitor[object], stmt.Visitor[None]):
             value = self._evaluate(_stmt.initializer)
 
         self._environment.define(_stmt.name.lexme, value)
+        return None
+
+    def visit_while_stmt(self, _stmt: stmt.While) -> None:
+        while self._is_truthy(self._evaluate(_stmt.condition)):
+            self._execute(_stmt.body)
         return None
 
     def visit_assign_expr(self, _expr: expr.Assign) -> object:

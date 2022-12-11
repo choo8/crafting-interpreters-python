@@ -19,8 +19,10 @@ class Visitor(Generic[R]):
 subclasses = {
     "Block": {"statements": "List[Stmt]"},
     "Expression": {"expression": "Expr"},
+    "If": {"condition": "Expr", "then_branch": "Stmt", "else_branch": "Stmt"},
     "Print": {"expression": "Expr"},
     "Var": {"name": "Token", "initializer": "Expr"},
+    "While": {"condition": "Expr", "body": "Stmt"},
 }
 
 for name, attributes in subclasses.items():
