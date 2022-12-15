@@ -1,4 +1,4 @@
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, List
 from token import Token
 
 
@@ -18,6 +18,7 @@ class Visitor(Generic[R]):
 subclasses = {
     "Assign": {"name": "Token", "value": "Expr"},
     "Binary": {"left": "Expr", "operator": "int", "right": "Expr"},
+    "Call": {"callee": "Expr", "paren": "Token", "arguments": "List[Expr]"},
     "Grouping": {"expression": "Expr"},
     "Literal": {"value": "object"},
     "Logical": {"left": "Expr", "operator": "Token", "right": "Expr"},

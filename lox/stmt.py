@@ -19,8 +19,10 @@ class Visitor(Generic[R]):
 subclasses = {
     "Block": {"statements": "List[Stmt]"},
     "Expression": {"expression": "Expr"},
+    "Function": {"name": "Token", "params": "List[Token]", "body": "List[Stmt]"},
     "If": {"condition": "Expr", "then_branch": "Stmt", "else_branch": "Stmt"},
     "Print": {"expression": "Expr"},
+    "Return": {"keyword": "Token", "value": "Expr"},
     "Var": {"name": "Token", "initializer": "Expr"},
     "While": {"condition": "Expr", "body": "Stmt"},
 }

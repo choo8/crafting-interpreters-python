@@ -2,8 +2,8 @@ from typing import List
 from token import Token
 from token_type import TokenType
 from error_reporter import error_reporter
-from expr import Expr, Assign, Binary, Unary, Literal, Grouping, Variable, Logical
-from stmt import Stmt, Print, Expression, Var, Block, If, While
+from expr import Expr, Assign, Binary, Unary, Literal, Grouping, Variable, Logical, Call
+from stmt import Stmt, Print, Expression, Var, Block, If, While, Function, Return
 
 
 class _ParseError(Exception):
@@ -28,10 +28,12 @@ class Parser:
 
     def _declaration(self) -> Stmt:
         try:
+            if self._match(TokenType.FUN):
+                return self._function("function")
             if self._match(TokenType.VAR):
                 return self._var_declaration()
             return self._statement()
-        except _ParseError as error:
+        except _ParseError:
             self._synchronize()
             return None
 
@@ -44,6 +46,9 @@ class Parser:
 
         if self._match(TokenType.PRINT):
             return self._print_statement()
+
+        if self._match(TokenType.RETURN):
+            return self._return_statement()
 
         if self._match(TokenType.WHILE):
             return self._while_statement()
@@ -104,6 +109,15 @@ class Parser:
         self._consume(TokenType.SEMICOLON, "Expect ';' after value.")
         return Print(value)
 
+    def _return_statement(self) -> Stmt:
+        keyword = self._previous()
+        value = None
+        if not self._check(TokenType.SEMICOLON):
+            value = self._expression()
+
+        self._consume(TokenType.SEMICOLON, "Expect ';' after return value.")
+        return Return(keyword, value)
+
     def _var_declaration(self) -> Stmt:
         name = self._consume(TokenType.IDENTIFIER, "Expected variable name.")
 
@@ -126,6 +140,28 @@ class Parser:
         expr = self._expression()
         self._consume(TokenType.SEMICOLON, "Expect ';' after value.")
         return Expression(expr)
+
+    def _function(self, kind: str) -> Function:
+        name = self._consume(TokenType.IDENTIFIER, f"Expect {kind} name.")
+        self._consume(TokenType.LEFT_PAREN, f"Expect '(' after {kind} name.")
+        parameters = []
+        if not self._check(TokenType.RIGHT_PAREN):
+            while True:
+                if len(parameters) >= 255:
+                    error_reporter.error(
+                        self._peek(), "Can't have more than 255 parameters."
+                    )
+
+                parameters.append(
+                    self._consume(TokenType.IDENTIFIER, "Expect parameter name.")
+                )
+                if not self._match(TokenType.COMMA):
+                    break
+        self._consume(TokenType.RIGHT_PAREN, "Expect ')' after parameters.")
+
+        self._consume(TokenType.LEFT_BRACE, f"Expect '{{' before {kind} body.")
+        body = self._block()
+        return Function(name, parameters, body)
 
     def _block(self) -> List[Stmt]:
         statements = []
@@ -222,7 +258,35 @@ class Parser:
             right = self._unary()
             return Unary(operator, right)
 
-        return self._primary()
+        return self._call()
+
+    def _finish_call(self, callee: Expr) -> Expr:
+        arguments = []
+        if not self._check(TokenType.RIGHT_PAREN):
+            while True:
+                if len(arguments) >= 255:
+                    error_reporter.error(
+                        self._peek(), "Can't have more than 255 arguments."
+                    )
+                arguments.append(self._expression())
+
+                if not self._match(TokenType.COMMA):
+                    break
+
+        paren = self._consume(TokenType.RIGHT_PAREN, "Expect ')' after arguments.")
+
+        return Call(callee, paren, arguments)
+
+    def _call(self) -> Expr:
+        expr = self._primary()
+
+        while True:
+            if self._match(TokenType.LEFT_PAREN):
+                expr = self._finish_call(expr)
+            else:
+                break
+
+        return expr
 
     def _primary(self) -> Expr:
         if self._match(TokenType.FALSE):

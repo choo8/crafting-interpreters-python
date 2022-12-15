@@ -1,3 +1,6 @@
+from time import time
+from typing import List, Self
+from types import MethodType
 import expr
 import stmt
 from token_type import TokenType
@@ -5,12 +8,31 @@ from token import Token
 from runtime_error import RuntimeError
 from error_reporter import error_reporter
 from environment import Environment
-from typing import List
+from lox_callable import LoxCallable
+from lox_function import LoxFunction
+from _return import Return
 
 
 class Interpreter(expr.Visitor[object], stmt.Visitor[None]):
     def __init__(self):
-        self._environment = Environment()
+        self.globals = Environment()
+        self._environment = self.globals
+
+        def _arity(self) -> int:
+            return 0
+
+        def _call(self, interpreter: Self, arguments: List[object]) -> object:
+            return float(time())
+
+        def _to_string(self) -> str:
+            return "<native fn>"
+
+        clock = LoxCallable()
+        clock.arity = MethodType(_arity, clock)
+        clock.call = MethodType(_call, clock)
+        clock.to_string = MethodType(_to_string, clock)
+
+        self.globals.define("clock", clock)
 
     def interpret(self, statements: List[stmt.Stmt]) -> None:
         try:
@@ -115,6 +137,11 @@ class Interpreter(expr.Visitor[object], stmt.Visitor[None]):
         self._evaluate(_stmt.expression)
         return None
 
+    def visit_function_stmt(self, _stmt: stmt.Function) -> None:
+        function = LoxFunction(_stmt, self._environment)
+        self._environment.define(_stmt.name.lexme, function)
+        return None
+
     def visit_if_stmt(self, _stmt: stmt.If) -> None:
         if self._is_truthy(self._evaluate(_stmt.condition)):
             self._execute(_stmt.then_branch)
@@ -126,6 +153,13 @@ class Interpreter(expr.Visitor[object], stmt.Visitor[None]):
         value = self._evaluate(_stmt.expression)
         print(self._stringify(value))
         return None
+
+    def visit_return_stmt(self, _stmt: stmt.Return) -> None:
+        value = None
+        if _stmt.value is not None:
+            value = self._evaluate(_stmt.value)
+
+        raise Return(value)
 
     def visit_var_stmt(self, _stmt: stmt.Var) -> None:
         value = None
@@ -184,3 +218,22 @@ class Interpreter(expr.Visitor[object], stmt.Visitor[None]):
 
         # Unreachable
         return None
+
+    def visit_call_expr(self, _expr: expr.Call) -> object:
+        callee = self._evaluate(_expr.callee)
+
+        arguments = []
+        for argument in _expr.arguments:
+            arguments.append(self._evaluate(argument))
+
+        if not isinstance(callee, LoxCallable):
+            raise RuntimeError(_expr.paren, "Can only call functions and classes.")
+
+        function = callee
+        if len(arguments) != function.arity():
+            raise RuntimeError(
+                _expr.paren,
+                f"Expected {function.arity()} arguments but got {len(arguments)}.",
+            )
+
+        return function.call(self, arguments)
