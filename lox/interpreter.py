@@ -17,6 +17,7 @@ class Interpreter(expr.Visitor[object], stmt.Visitor[None]):
     def __init__(self):
         self.globals = Environment()
         self._environment = self.globals
+        self._locals = {}
 
         def _arity(self) -> int:
             return 0
@@ -69,7 +70,14 @@ class Interpreter(expr.Visitor[object], stmt.Visitor[None]):
         return None
 
     def visit_variable_expr(self, _expr: expr.Variable) -> object:
-        return self._environment.get(_expr.name)
+        return self._look_up_variable(_expr.name, _expr)
+
+    def _look_up_variable(self, name: Token, _expr: expr.Expr) -> object:
+        if _expr in self._locals:
+            distance = self._locals[_expr]
+            return self._environment.get_at(distance, name.lexme)
+        else:
+            return self.globals.get(name)
 
     def _check_number_operand(self, operator: Token, operand: object) -> None:
         if isinstance(operand, float):
@@ -116,6 +124,9 @@ class Interpreter(expr.Visitor[object], stmt.Visitor[None]):
 
     def _execute(self, _stmt: stmt.Stmt) -> None:
         _stmt.accept(self)
+
+    def resolve(self, _expr: expr.Expr, depth: int) -> None:
+        self._locals[_expr] = depth
 
     def execute_block(
         self, statements: List[stmt.Stmt], environment: Environment
@@ -176,7 +187,13 @@ class Interpreter(expr.Visitor[object], stmt.Visitor[None]):
 
     def visit_assign_expr(self, _expr: expr.Assign) -> object:
         value = self._evaluate(_expr.value)
-        self._environment.assign(_expr.name, value)
+
+        if _expr in self._locals:
+            distance = self._locals[_expr]
+            self._environment.assign_at(distance, _expr.name, value)
+        else:
+            self.globals.assign(_expr.name, value)
+
         return value
 
     def visit_binary_expr(self, _expr: expr.Binary) -> object:

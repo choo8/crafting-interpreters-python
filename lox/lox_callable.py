@@ -8,7 +8,7 @@ class LoxCallable:
     def arity(self) -> int:
         pass
 
-    def call(self, interpreter: 'Interpreter', arguments: List[object]) -> object:
+    def call(self, interpreter: "Interpreter", arguments: List[object]) -> object:
         pass
 
     def to_string(self) -> str:

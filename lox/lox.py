@@ -5,6 +5,7 @@ from scanner import Scanner
 from parser import Parser
 from error_reporter import error_reporter
 from interpreter import Interpreter
+from resolver import Resolver
 
 
 class Lox:
@@ -56,6 +57,13 @@ class Lox:
         parser = Parser(tokens)
         statements = parser.parse()
 
+        if error_reporter.had_error:
+            return
+
+        resolver = Resolver(self._interpreter)
+        resolver._resolve(statements)
+
+        # Stop if there was a resolution error
         if error_reporter.had_error:
             return
 
