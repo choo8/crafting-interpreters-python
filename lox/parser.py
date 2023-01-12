@@ -15,6 +15,7 @@ from expr import (
     Get,
     Set,
     This,
+    Super,
 )
 from stmt import Stmt, Print, Expression, Var, Block, If, While, Function, Return, Class
 
@@ -54,6 +55,12 @@ class Parser:
 
     def _class_declaration(self) -> Stmt:
         name = self._consume(TokenType.IDENTIFIER, "Expect class name.")
+
+        superclass = None
+        if self._match(TokenType.LESS):
+            self._consume(TokenType.IDENTIFIER, "Expect superclass name.")
+            superclass = Variable(self._previous())
+
         self._consume(TokenType.LEFT_BRACE, "Expect '{' before class body.")
 
         methods = []
@@ -62,7 +69,7 @@ class Parser:
 
         self._consume(TokenType.RIGHT_BRACE, "Expect '}' after class body.")
 
-        return Class(name, methods)
+        return Class(name, superclass, methods)
 
     def _statement(self) -> Stmt:
         if self._match(TokenType.FOR):
@@ -334,6 +341,14 @@ class Parser:
 
         if self._match(TokenType.NUMBER, TokenType.STRING):
             return Literal(self._previous().literal)
+
+        if self._match(TokenType.SUPER):
+            keyword = self._previous()
+            self._consume(TokenType.DOT, "Expect '.' after 'super'.")
+            method = self._consume(
+                TokenType.IDENTIFIER, "Expect superclass method name."
+            )
+            return Super(keyword, method)
 
         if self._match(TokenType.THIS):
             return This(self._previous())

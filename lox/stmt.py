@@ -1,4 +1,4 @@
-from expr import Expr
+from expr import Expr, Variable
 from token import Token
 from typing import Generic, TypeVar, List
 
@@ -20,7 +20,7 @@ subclasses = {
     "Block": {"statements": "List[Stmt]"},
     "Expression": {"expression": "Expr"},
     "Function": {"name": "Token", "params": "List[Token]", "body": "List[Stmt]"},
-    "Class": {"name": "Token", "methods": "List[Function]"},
+    "Class": {"name": "Token", "superclass": "Variable", "methods": "List[Function]"},
     "If": {"condition": "Expr", "then_branch": "Stmt", "else_branch": "Stmt"},
     "Print": {"expression": "Expr"},
     "Return": {"keyword": "Token", "value": "Expr"},

@@ -69,6 +69,21 @@ class Interpreter(expr.Visitor[object], stmt.Visitor[None]):
         _object.set(_expr.name, value)
         return value
 
+    def visit_super_expr(self, _expr: expr.Super) -> object:
+        distance = self._locals.get(_expr)
+        superclass = self._environment.get_at(distance, "super")
+
+        _object = self._environment.get_at(distance - 1, "this")
+
+        method = superclass.find_method(_expr.method.lexme)
+
+        if method is None:
+            raise RuntimeError(
+                _expr.method, f"Undefined property '{_expr.method.lexme}'."
+            )
+
+        return method.bind(_object)
+
     def visit_this_expr(self, _expr: expr.This) -> object:
         return self._look_up_variable(_expr.keyword, _expr)
 
@@ -160,7 +175,17 @@ class Interpreter(expr.Visitor[object], stmt.Visitor[None]):
         return None
 
     def visit_class_stmt(self, _stmt: stmt.Class) -> None:
+        superclass = None
+        if _stmt.superclass is not None:
+            superclass = self._evaluate(_stmt.superclass)
+            if not isinstance(superclass, LoxClass):
+                raise RuntimeError(_stmt.superclass.name, "Superclass must be a class.")
+
         self._environment.define(_stmt.name.lexme, None)
+
+        if _stmt.superclass is not None:
+            self._environment = Environment(self._environment)
+            self._environment.define("super", superclass)
 
         methods = {}
         for method in _stmt.methods:
@@ -169,7 +194,11 @@ class Interpreter(expr.Visitor[object], stmt.Visitor[None]):
             )
             methods[method.name.lexme] = function
 
-        klass = LoxClass(_stmt.name.lexme, methods)
+        klass = LoxClass(_stmt.name.lexme, superclass, methods)
+
+        if superclass is not None:
+            self._environment = self._environment.enclosing
+
         self._environment.assign(_stmt.name, klass)
         return None
 
