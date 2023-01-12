@@ -42,4 +42,4 @@ class Environment:
         return self.ancestor(distance)._values[name]
 
     def assign_at(self, distance: int, name: Token, value: object) -> None:
-        self.ancestor(distance).values[name.lexme] = value
+        self.ancestor(distance)._values[name.lexme] = value

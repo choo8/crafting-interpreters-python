@@ -10,6 +10,8 @@ from error_reporter import error_reporter
 from environment import Environment
 from lox_callable import LoxCallable
 from lox_function import LoxFunction
+from lox_class import LoxClass
+from lox_instance import LoxInstance
 from _return import Return
 
 
@@ -56,6 +58,19 @@ class Interpreter(expr.Visitor[object], stmt.Visitor[None]):
                 return left
 
         return self._evaluate(_expr.right)
+
+    def visit_set_expr(self, _expr: expr.Set) -> object:
+        _object = self._evaluate(_expr.object)
+
+        if not isinstance(_object, LoxInstance):
+            raise RuntimeError(_expr.name, "Only instances have fields.")
+
+        value = self._evaluate(_expr.value)
+        _object.set(_expr.name, value)
+        return value
+
+    def visit_this_expr(self, _expr: expr.This) -> object:
+        return self._look_up_variable(_expr.keyword, _expr)
 
     def visit_unary_expr(self, _expr: expr.Unary) -> object:
         right = self._evaluate(_expr.right)
@@ -144,12 +159,26 @@ class Interpreter(expr.Visitor[object], stmt.Visitor[None]):
         self.execute_block(_stmt.statements, Environment(self._environment))
         return None
 
+    def visit_class_stmt(self, _stmt: stmt.Class) -> None:
+        self._environment.define(_stmt.name.lexme, None)
+
+        methods = {}
+        for method in _stmt.methods:
+            function = LoxFunction(
+                method, self._environment, method.name.lexme == "init"
+            )
+            methods[method.name.lexme] = function
+
+        klass = LoxClass(_stmt.name.lexme, methods)
+        self._environment.assign(_stmt.name, klass)
+        return None
+
     def visit_expression_stmt(self, _stmt: stmt.Stmt) -> None:
         self._evaluate(_stmt.expression)
         return None
 
     def visit_function_stmt(self, _stmt: stmt.Function) -> None:
-        function = LoxFunction(_stmt, self._environment)
+        function = LoxFunction(_stmt, self._environment, False)
         self._environment.define(_stmt.name.lexme, function)
         return None
 
@@ -254,3 +283,10 @@ class Interpreter(expr.Visitor[object], stmt.Visitor[None]):
             )
 
         return function.call(self, arguments)
+
+    def visit_get_expr(self, _expr: expr.Get) -> object:
+        _object = self._evaluate(_expr.object)
+        if isinstance(_object, LoxInstance):
+            return _object.get(_expr.name)
+
+        raise RuntimeError(_expr.name, "Only instances have properties.")

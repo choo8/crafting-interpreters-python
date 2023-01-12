@@ -20,6 +20,7 @@ subclasses = {
     "Block": {"statements": "List[Stmt]"},
     "Expression": {"expression": "Expr"},
     "Function": {"name": "Token", "params": "List[Token]", "body": "List[Stmt]"},
+    "Class": {"name": "Token", "methods": "List[Function]"},
     "If": {"condition": "Expr", "then_branch": "Stmt", "else_branch": "Stmt"},
     "Print": {"expression": "Expr"},
     "Return": {"keyword": "Token", "value": "Expr"},

@@ -11,6 +11,13 @@ from functools import singledispatchmethod
 class FunctionType(Enum):
     NONE = 1
     FUNCTION = 2
+    INTIALIZER = 3
+    METHOD = 4
+
+
+class ClassType(Enum):
+    NONE = 1
+    CLASS = 2
 
 
 class Resolver(expr.Visitor[None], stmt.Visitor[None]):
@@ -18,6 +25,7 @@ class Resolver(expr.Visitor[None], stmt.Visitor[None]):
         self._interpreter = interpreter
         self._scopes = []
         self._current_function = FunctionType.NONE
+        self._current_class = ClassType.NONE
 
     @singledispatchmethod
     def _overloaded_resolve(self, arg) -> None:
@@ -32,12 +40,20 @@ class Resolver(expr.Visitor[None], stmt.Visitor[None]):
     def _(self, _stmt: stmt.Stmt) -> None:
         _stmt.accept(self)
 
+    @_overloaded_resolve.register
+    def _(self, _expr: expr.Expr) -> None:
+        _expr.accept(self)
+
     @overload
     def _resolve(self, statements: List[stmt.Stmt]) -> None:
         ...
 
     @overload
     def _resolve(self, _stmt: stmt.Stmt) -> None:
+        ...
+
+    @overload
+    def _resolve(self, _expr: expr.Expr) -> None:
         ...
 
     def _resolve(self, *args, **kwargs) -> None:
@@ -65,13 +81,12 @@ class Resolver(expr.Visitor[None], stmt.Visitor[None]):
         if len(self._scopes) == 0:
             return
 
-        scope = self._scopes[-1]
-        if name.lexme in scope:
+        if name.lexme in self._scopes[-1]:
             error_reporter.error(
                 name, "Already a variable with this name in this scope."
             )
 
-        scope[name.lexme] = False
+        self._scopes[-1][name.lexme] = False
 
     def _define(self, name: Token) -> None:
         if len(self._scopes) == 0:
@@ -81,13 +96,39 @@ class Resolver(expr.Visitor[None], stmt.Visitor[None]):
     def _resolve_local(self, _expr: expr.Expr, name: Token) -> None:
         for idx in range(len(self._scopes) - 1, -1, -1):
             if name.lexme in self._scopes[idx]:
-                self._interpreter._resolve(_expr, len(self._scopes) - 1 - idx)
+                self._interpreter.resolve(_expr, len(self._scopes) - 1 - idx)
                 return
 
     def visit_block_stmt(self, _stmt: stmt.Block) -> None:
         self._begin_scope()
         self._resolve(_stmt.statements)
         self._end_scope()
+        return None
+
+    def visit_expression_stmt(self, _stmt: stmt.Expression) -> None:
+        self._resolve(_stmt.expression)
+        return None
+
+    def visit_class_stmt(self, _stmt: stmt.Class) -> None:
+        enclosing_class = self._current_class
+        self._current_class = ClassType.CLASS
+
+        self._declare(_stmt.name)
+        self._define(_stmt.name)
+
+        self._begin_scope()
+        self._scopes[-1]["this"] = True
+
+        for method in _stmt.methods:
+            declaration = FunctionType.METHOD
+            if method.name.lexme == "init":
+                declaration = FunctionType.INTIALIZER
+
+            self._resolve_function(method, declaration)
+
+        self._end_scope()
+
+        self._current_class = enclosing_class
         return None
 
     def visit_if_stmt(self, _stmt: stmt.If) -> None:
@@ -106,6 +147,11 @@ class Resolver(expr.Visitor[None], stmt.Visitor[None]):
             error_reporter.error(_stmt.keyword, "Can't return from top-level code.")
 
         if _stmt.value is not None:
+            if self._current_function == FunctionType.INTIALIZER:
+                error_reporter.error(
+                    _stmt.keyword, "Can't return a value from an initializer."
+                )
+
             self._resolve(_stmt.value)
 
         return None
@@ -147,6 +193,10 @@ class Resolver(expr.Visitor[None], stmt.Visitor[None]):
 
         return None
 
+    def visit_get_expr(self, _expr: expr.Get) -> None:
+        self._resolve(_expr.object)
+        return None
+
     def visit_grouping_expr(self, _expr: expr.Grouping) -> None:
         self._resolve(_expr.expression)
         return None
@@ -159,12 +209,29 @@ class Resolver(expr.Visitor[None], stmt.Visitor[None]):
         self._resolve(_expr.right)
         return None
 
+    def visit_set_expr(self, _expr: expr.Set) -> None:
+        self._resolve(_expr.value)
+        self._resolve(_expr.object)
+        return None
+
+    def visit_this_expr(self, _expr: expr.This) -> None:
+        if self._current_class == ClassType.NONE:
+            error_reporter.error(_expr.keyword, "Can't use 'this' outside of a class.")
+            return None
+
+        self._resolve_local(_expr, _expr.keyword)
+        return None
+
     def visit_unary_expr(self, _expr: expr.Unary) -> None:
         self._resolve(_expr.right)
         return None
 
     def visit_variable_expr(self, _expr: expr.Variable) -> None:
-        if len(self._scopes) > 0 and not self._scopes[-1][_expr.name.lexme]:
+        if (
+            len(self._scopes) > 0
+            and _expr.name.lexme in self._scopes[-1]
+            and not self._scopes[-1][_expr.name.lexme]
+        ):
             error_reporter.error(
                 _expr.name, "Can't read local variable in its own initializer."
             )
