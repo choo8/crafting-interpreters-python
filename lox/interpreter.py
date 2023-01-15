@@ -137,7 +137,8 @@ class Interpreter(expr.Visitor[object], stmt.Visitor[None]):
         if a is None:
             return False
 
-        return a == b
+        # Only objects of same types can be equal
+        return type(a) == type(b) and a == b
 
     def _stringify(self, object: object) -> str:
         if object is None:
