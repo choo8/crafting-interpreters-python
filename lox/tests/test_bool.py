@@ -11,7 +11,11 @@ def test_equality():
         ],
         capture_output=True,
     )
-    assert res.stdout == b"True\nFalse\nFalse\nTrue\nFalse\nFalse\nFalse\nFalse\nFalse\nFalse\nTrue\nTrue\nFalse\nTrue\nTrue\nTrue\nTrue\nTrue\n"
+    assert (
+        res.stdout
+        == b"True\nFalse\nFalse\nTrue\nFalse\nFalse\nFalse\nFalse\nFalse\nFalse\nTrue\nTrue\nFalse\nTrue\nTrue\nTrue\nTrue\nTrue\n"
+    )
+
 
 def test_not():
     res = subprocess.run(

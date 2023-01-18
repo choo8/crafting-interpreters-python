@@ -13,6 +13,7 @@ def test_empty():
     )
     assert res.stdout == b"ok\n"
 
+
 def test_scope():
     res = subprocess.run(
         [
